@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { authService } from "@/services/authService";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -12,8 +13,15 @@ const Signup = () => {
   const [companyAddress, setCompanyAddress] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = () => {
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
+  const handleSignup = async () => {
     if (!companyName || !companyAddress || !email || !password) {
       toast({
         title: "Missing Information",
@@ -23,13 +31,40 @@ const Signup = () => {
       return;
     }
 
-    // Mock signup
-    toast({
-      title: "Account Created",
-      description: "Your carrier account has been created successfully",
-    });
-    
-    navigate("/login");
+    if (password.length < 6) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await authService.register({
+        company_name: companyName,
+        company_address: companyAddress,
+        email,
+        password,
+      });
+      
+      toast({
+        title: "Account Created",
+        description: "Your company account has been created successfully",
+      });
+      
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Registration Failed",
+        description: error instanceof Error ? error.message : "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -41,13 +76,20 @@ const Signup = () => {
           <p className="text-muted-foreground mt-2">Create your carrier account</p>
         </div>
 
-        <div className="space-y-4">
+        <form 
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSignup();
+          }}
+        >
           <div>
             <label className="text-sm font-medium mb-2 block">Company Name *</label>
             <Input
               placeholder="Your Carrier Company"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
+              required
             />
           </div>
           <div>
@@ -56,6 +98,7 @@ const Signup = () => {
               placeholder="123 Main St, City, State"
               value={companyAddress}
               onChange={(e) => setCompanyAddress(e.target.value)}
+              required
             />
           </div>
           <div>
@@ -65,6 +108,7 @@ const Signup = () => {
               placeholder="admin@yourcarrier.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
           <div>
@@ -74,22 +118,30 @@ const Signup = () => {
               placeholder="Create a strong password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              required
             />
           </div>
-          <Button className="w-full" size="lg" onClick={handleSignup}>
-            Create Account
+          <Button 
+            type="submit"
+            className="w-full" 
+            size="lg" 
+            disabled={isLoading}
+          >
+            {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
           
           <div className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <button
+              type="button"
               onClick={() => navigate("/login")}
               className="text-primary hover:underline font-medium"
             >
               Sign in here
             </button>
           </div>
-        </div>
+        </form>
       </Card>
     </div>
   );

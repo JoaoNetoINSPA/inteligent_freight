@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Package, LogOut, Users, FileSpreadsheet, Box, Menu, X } from "lucide-react";
+import { authService } from "@/services/authService";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,7 +16,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const role = localStorage.getItem("userRole");
+    if (!authService.isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+    
+    const role = authService.getUserRole();
     const email = localStorage.getItem("userEmail");
     
     if (!role || !email) {
@@ -28,8 +34,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userEmail");
+    authService.logout();
     navigate("/");
   };
 

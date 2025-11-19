@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
+import { packageService } from "@/services/packageService";
 
 const PackageForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const isEdit = id !== "new";
+  const isEdit = id !== "new" && id !== undefined;
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(isEdit);
 
   const [formData, setFormData] = useState({
     orderId: "",
@@ -30,7 +33,45 @@ const PackageForm = () => {
     orderStatus: "pending",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isEdit && id) {
+      loadPackage(parseInt(id));
+    }
+  }, [isEdit, id]);
+
+  const loadPackage = async (packageId: number) => {
+    try {
+      setIsLoadingData(true);
+      const pkg = await packageService.getById(packageId);
+      setFormData({
+        orderId: pkg.order_id || "",
+        customerCity: pkg.customer_city || "",
+        customerState: pkg.customer_state || "",
+        customerZipCode: pkg.customer_zip_code_prefix?.toString() || "",
+        sellerCity: pkg.seller_city || "",
+        sellerState: pkg.seller_state || "",
+        sellerZipCode: pkg.seller_zip_code_prefix?.toString() || "",
+        productWeight: pkg.product_weight_g ? (pkg.product_weight_g / 1000).toString() : "",
+        productLength: pkg.product_length_cm?.toString() || "",
+        productHeight: pkg.product_height_cm?.toString() || "",
+        productWidth: pkg.product_width_cm?.toString() || "",
+        freightValue: pkg.freight_value?.toString() || "",
+        paymentType: pkg.payment_type || "",
+        orderStatus: pkg.order_status || "pending",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load package",
+        variant: "destructive",
+      });
+      navigate("/dashboard");
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.orderId || !formData.customerCity || !formData.sellerCity) {
@@ -42,17 +83,65 @@ const PackageForm = () => {
       return;
     }
 
-    toast({
-      title: isEdit ? "Package Updated" : "Package Created",
-      description: `Package ${formData.orderId} has been ${isEdit ? "updated" : "created"} successfully`,
-    });
+    setIsLoading(true);
 
-    navigate("/dashboard");
+    try {
+      const packageData = {
+        order_id: formData.orderId,
+        customer_city: formData.customerCity,
+        customer_state: formData.customerState || undefined,
+        customer_zip_code_prefix: formData.customerZipCode ? parseInt(formData.customerZipCode) : undefined,
+        seller_city: formData.sellerCity,
+        seller_state: formData.sellerState || undefined,
+        seller_zip_code_prefix: formData.sellerZipCode ? parseInt(formData.sellerZipCode) : undefined,
+        product_weight_g: formData.productWeight ? parseFloat(formData.productWeight) * 1000 : undefined,
+        product_length_cm: formData.productLength ? parseFloat(formData.productLength) : undefined,
+        product_height_cm: formData.productHeight ? parseFloat(formData.productHeight) : undefined,
+        product_width_cm: formData.productWidth ? parseFloat(formData.productWidth) : undefined,
+        freight_value: formData.freightValue ? parseFloat(formData.freightValue) : undefined,
+        payment_type: formData.paymentType || undefined,
+        order_status: formData.orderStatus,
+      };
+
+      if (isEdit && id) {
+        await packageService.update(parseInt(id), packageData);
+        toast({
+          title: "Package Updated",
+          description: `Package ${formData.orderId} has been updated successfully`,
+        });
+      } else {
+        await packageService.create(packageData);
+        toast({
+          title: "Package Created",
+          description: `Package ${formData.orderId} has been created successfully`,
+        });
+      }
+
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        title: isEdit ? "Update Failed" : "Creation Failed",
+        description: error instanceof Error ? error.message : `Failed to ${isEdit ? "update" : "create"} package`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  if (isLoadingData) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+          <div className="text-center p-8 text-muted-foreground">Loading package data...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -234,10 +323,10 @@ const PackageForm = () => {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1">
-                {isEdit ? "Update Package" : "Create Package"}
+              <Button type="submit" className="flex-1" disabled={isLoading}>
+                {isLoading ? (isEdit ? "Updating..." : "Creating...") : (isEdit ? "Update Package" : "Create Package")}
               </Button>
-              <Button type="button" variant="outline" onClick={() => navigate("/dashboard")}>
+              <Button type="button" variant="outline" onClick={() => navigate("/dashboard")} disabled={isLoading}>
                 Cancel
               </Button>
             </div>

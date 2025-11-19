@@ -4,12 +4,15 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingDown, Shield, BarChart3 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import { BRAZILIAN_STATES } from "@/constants/brazilianStates";
 import { searchCepByAddress } from "@/services/viaCepService";
+import { authService } from "@/services/authService";
 
 const Landing = () => {
+  const navigate = useNavigate();
   const [originState, setOriginState] = useState("");
   const [originCity, setOriginCity] = useState("");
   const [originStreet, setOriginStreet] = useState("");
@@ -22,6 +25,12 @@ const Landing = () => {
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [depth, setDepth] = useState("");
+
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const fetchOriginCep = async () => {

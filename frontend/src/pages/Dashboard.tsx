@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,59 +6,66 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Edit, Trash2, MapPin, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-// Mock data
-const mockPackages = [
-  {
-    id: "PKG-001",
-    orderId: "ORD-2024-001",
-    customerCity: "New York",
-    customerState: "NY",
-    sellerCity: "Los Angeles",
-    sellerState: "CA",
-    productWeight: 5.2,
-    freightValue: 45.50,
-    status: "delivered",
-    orderDate: "2024-01-15",
-  },
-  {
-    id: "PKG-002",
-    orderId: "ORD-2024-002",
-    customerCity: "Chicago",
-    customerState: "IL",
-    sellerCity: "Houston",
-    sellerState: "TX",
-    productWeight: 12.8,
-    freightValue: 78.20,
-    status: "in_transit",
-    orderDate: "2024-01-16",
-  },
-  {
-    id: "PKG-003",
-    orderId: "ORD-2024-003",
-    customerCity: "Miami",
-    customerState: "FL",
-    sellerCity: "Seattle",
-    sellerState: "WA",
-    productWeight: 3.5,
-    freightValue: 62.00,
-    status: "pending",
-    orderDate: "2024-01-17",
-  },
-];
+import { toast } from "@/hooks/use-toast";
+import { packageService, Package as PackageType } from "@/services/packageService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [packages] = useState(mockPackages);
+  const [packages, setPackages] = useState<PackageType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredPackages = packages.filter(pkg =>
-    pkg.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pkg.customerCity.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pkg.sellerCity.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    loadPackages();
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const loadPackages = async () => {
+    try {
+      setIsLoading(true);
+      const data = await packageService.getAll();
+      setPackages(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load packages",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this package?")) {
+      return;
+    }
+
+    try {
+      await packageService.delete(id);
+      toast({
+        title: "Package Deleted",
+        description: "Package has been deleted successfully",
+      });
+      loadPackages();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete package",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredPackages = packages.filter(pkg => {
+    const search = searchTerm.toLowerCase();
+    return (
+      pkg.order_id?.toLowerCase().includes(search) ||
+      pkg.customer_city?.toLowerCase().includes(search) ||
+      pkg.seller_city?.toLowerCase().includes(search)
+    );
+  });
+
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case "delivered":
         return "bg-green-500";
@@ -69,6 +76,23 @@ const Dashboard = () => {
       default:
         return "bg-gray-500";
     }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getWeightInKg = (weightG?: number | string) => {
+    if (!weightG) return "N/A";
+    const weight = typeof weightG === 'string' ? parseFloat(weightG) : weightG;
+    if (isNaN(weight)) return "N/A";
+    return (weight / 1000).toFixed(2);
   };
 
   return (
@@ -114,7 +138,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">In Transit</p>
-                <p className="text-3xl font-bold">{packages.filter(p => p.status === "in_transit").length}</p>
+                <p className="text-3xl font-bold">{packages.filter(p => p.order_status === "in_transit").length}</p>
               </div>
               <MapPin className="h-12 w-12 text-blue-500 opacity-20" />
             </div>
@@ -123,7 +147,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Delivered</p>
-                <p className="text-3xl font-bold">{packages.filter(p => p.status === "delivered").length}</p>
+                <p className="text-3xl font-bold">{packages.filter(p => p.order_status === "delivered").length}</p>
               </div>
               <Package className="h-12 w-12 text-green-500 opacity-20" />
             </div>
@@ -133,50 +157,65 @@ const Dashboard = () => {
         {/* Packages Table */}
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-4 font-semibold">Order ID</th>
-                  <th className="text-left p-4 font-semibold">Route</th>
-                  <th className="text-left p-4 font-semibold">Weight (kg)</th>
-                  <th className="text-left p-4 font-semibold">Freight Value</th>
-                  <th className="text-left p-4 font-semibold">Status</th>
-                  <th className="text-left p-4 font-semibold">Date</th>
-                  <th className="text-left p-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPackages.map((pkg) => (
-                  <tr key={pkg.id} className="border-b hover:bg-muted/50 transition-colors">
-                    <td className="p-4 font-medium">{pkg.orderId}</td>
-                    <td className="p-4">
-                      <div className="text-sm">
-                        <div>{pkg.sellerCity}, {pkg.sellerState}</div>
-                        <div className="text-muted-foreground">→ {pkg.customerCity}, {pkg.customerState}</div>
-                      </div>
-                    </td>
-                    <td className="p-4">{pkg.productWeight}</td>
-                    <td className="p-4 font-medium">${pkg.freightValue.toFixed(2)}</td>
-                    <td className="p-4">
-                      <Badge className={getStatusColor(pkg.status)}>
-                        {pkg.status.replace("_", " ")}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">{pkg.orderDate}</td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => navigate(`/package/${pkg.id}`)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
+            {isLoading ? (
+              <div className="p-8 text-center text-muted-foreground">Loading packages...</div>
+            ) : filteredPackages.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                {searchTerm ? "No packages found matching your search" : "No packages yet. Create your first package!"}
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="text-left p-4 font-semibold">Order ID</th>
+                    <th className="text-left p-4 font-semibold">Route</th>
+                    <th className="text-left p-4 font-semibold">Weight (kg)</th>
+                    <th className="text-left p-4 font-semibold">Freight Value</th>
+                    <th className="text-left p-4 font-semibold">Status</th>
+                    <th className="text-left p-4 font-semibold">Date</th>
+                    <th className="text-left p-4 font-semibold">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredPackages.map((pkg) => (
+                    <tr key={pkg.id} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className="p-4 font-medium">{pkg.order_id || "N/A"}</td>
+                      <td className="p-4">
+                        <div className="text-sm">
+                          <div>{pkg.seller_city || "N/A"}, {pkg.seller_state || ""}</div>
+                          <div className="text-muted-foreground">→ {pkg.customer_city || "N/A"}, {pkg.customer_state || ""}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">{getWeightInKg(pkg.product_weight_g)}</td>
+                      <td className="p-4 font-medium">${pkg.freight_value ? Number(pkg.freight_value).toFixed(2) : "0.00"}</td>
+                      <td className="p-4">
+                        <Badge className={getStatusColor(pkg.order_status)}>
+                          {pkg.order_status ? pkg.order_status.replace("_", " ") : "pending"}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-sm text-muted-foreground">
+                        {formatDate(pkg.order_purchase_timestamp || pkg.created_at)}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => navigate(`/package/${pkg.id}`)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDelete(pkg.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
       </div>

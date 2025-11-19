@@ -1,63 +1,123 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Search, Trash2, User } from "lucide-react";
-
-const mockTeamMembers = [
-  { id: "1", name: "John Seller", email: "john@demo.com", role: "seller", joinedDate: "2024-01-10" },
-  { id: "2", name: "Jane Seller", email: "jane@demo.com", role: "seller", joinedDate: "2024-01-15" },
-];
+import { userService, User as UserType } from "@/services/userService";
 
 const Team = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [teamMembers, setTeamMembers] = useState(mockTeamMembers);
+  const [teamMembers, setTeamMembers] = useState<UserType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newMember, setNewMember] = useState({ name: "", email: "", password: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newMember, setNewMember] = useState({ email: "", password: "", role: "seller" });
+
+  useEffect(() => {
+    loadTeamMembers();
+  }, []);
+
+  const loadTeamMembers = async () => {
+    try {
+      setIsLoading(true);
+      const data = await userService.getAll();
+      setTeamMembers(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load team members",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredMembers = teamMembers.filter(member =>
-    member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddMember = () => {
-    if (!newMember.name || !newMember.email || !newMember.password) {
+  const handleAddMember = async () => {
+    if (!newMember.email || !newMember.password) {
       toast({
         title: "Missing Information",
-        description: "Please fill all fields",
+        description: "Please fill all required fields",
         variant: "destructive",
       });
       return;
     }
 
-    const member = {
-      id: String(teamMembers.length + 1),
-      name: newMember.name,
-      email: newMember.email,
-      role: "seller",
-      joinedDate: new Date().toISOString().split("T")[0],
-    };
+    if (newMember.password.length < 6) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setTeamMembers([...teamMembers, member]);
-    setNewMember({ name: "", email: "", password: "" });
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Team Member Added",
-      description: `${newMember.name} has been added to your team`,
-    });
+    setIsSubmitting(true);
+
+    try {
+      await userService.create({
+        email: newMember.email,
+        password: newMember.password,
+        role: newMember.role,
+      });
+
+      toast({
+        title: "Team Member Added",
+        description: `${newMember.email} has been added to your team`,
+      });
+
+      setNewMember({ email: "", password: "", role: "seller" });
+      setIsDialogOpen(false);
+      loadTeamMembers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add team member",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteMember = (id: string) => {
-    setTeamMembers(teamMembers.filter(m => m.id !== id));
-    toast({
-      title: "Team Member Removed",
-      description: "Team member has been removed successfully",
-    });
+  const handleDeleteMember = async (id: number) => {
+    if (!confirm("Are you sure you want to remove this team member?")) {
+      return;
+    }
+
+    try {
+      await userService.delete(id);
+      toast({
+        title: "Team Member Removed",
+        description: "Team member has been removed successfully",
+      });
+      loadTeamMembers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove team member",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
+    }
   };
 
   return (
@@ -82,33 +142,40 @@ const Team = () => {
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Full Name *</label>
-                  <Input
-                    placeholder="John Doe"
-                    value={newMember.name}
-                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  />
-                </div>
-                <div>
                   <label className="text-sm font-medium mb-2 block">Email *</label>
                   <Input
                     type="email"
                     placeholder="john@example.com"
                     value={newMember.email}
                     onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    required
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Password *</label>
                   <Input
                     type="password"
-                    placeholder="Create password"
+                    placeholder="Create password (min 6 characters)"
                     value={newMember.password}
                     onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
+                    minLength={6}
+                    required
                   />
                 </div>
-                <Button onClick={handleAddMember} className="w-full">
-                  Add Member
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Role *</label>
+                  <Select value={newMember.role} onValueChange={(value) => setNewMember({ ...newMember, role: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seller">Seller</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAddMember} className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? "Adding..." : "Add Member"}
                 </Button>
               </div>
             </DialogContent>
@@ -127,39 +194,47 @@ const Team = () => {
           </div>
         </Card>
 
-        <div className="grid gap-4">
-          {filteredMembers.map((member) => (
-            <Card key={member.id} className="p-6 hover-scale">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-6 w-6 text-primary" />
+        {isLoading ? (
+          <div className="text-center p-8 text-muted-foreground">Loading team members...</div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="text-center p-8 text-muted-foreground">
+            {searchTerm ? "No team members found matching your search" : "No team members yet. Add your first team member!"}
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredMembers.map((member) => (
+              <Card key={member.id} className="p-6 hover-scale">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">{member.email}</h3>
+                      <p className="text-sm text-muted-foreground">User ID: {member.id}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{member.name}</h3>
-                    <p className="text-sm text-muted-foreground">{member.email}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right hidden md:block">
+                      <Badge variant="secondary" className="mb-1">
+                        {member.role}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">Joined {formatDate(member.created_at)}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteMember(member.id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right hidden md:block">
-                    <Badge variant="secondary" className="mb-1">
-                      {member.role}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">Joined {member.joinedDate}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteMember(member.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
