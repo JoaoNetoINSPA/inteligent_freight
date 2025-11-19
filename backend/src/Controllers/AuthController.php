@@ -26,7 +26,7 @@ class AuthController extends Controller
     
     public function health(): void
     {
-        Response::success(['status' => 'API is running']);
+        Response::success(['status' => 'API is running successfully']);
     }
     
     public function register(): void
