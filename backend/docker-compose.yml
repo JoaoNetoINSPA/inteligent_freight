@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: intelligent_freight_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - freight_network
+
+  php:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: intelligent_freight_php
+    volumes:
+      - ./:/var/www/html
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=intelligent_freight
+      - DB_USER=freight_user
+      - DB_PASS=freight_password
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      - mysql
+    networks:
+      - freight_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: intelligent_freight_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: intelligent_freight
+      MYSQL_USER: freight_user
+      MYSQL_PASSWORD: freight_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - freight_network
+
+volumes:
+  mysql_data:
+
+networks:
+  freight_network:
+    driver: bridge
+

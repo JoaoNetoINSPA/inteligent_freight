@@ -1,0 +1,253 @@
+# Backend PHP API - Cursor Rules
+
+## Project Overview
+This is a PHP 8.2+ backend API built with a custom MVC architecture (no frameworks like Laravel).
+The project follows SOLID principles, PSR standards, and uses Docker for orchestration.
+
+## Core Principles
+
+### SOLID Principles
+- **Single Responsibility**: Each class should have one clear responsibility
+- **Open/Closed**: Open for extension, closed for modification
+- **Liskov Substitution**: Use interfaces and abstract classes properly
+- **Interface Segregation**: Create specific interfaces, not fat interfaces
+- **Dependency Inversion**: Depend on abstractions, not concretions (use Dependency Injection)
+
+### PSR Standards
+- **PSR-1**: Basic Coding Standard
+  - Always use `<?php` opening tag
+  - Always use `declare(strict_types=1);`
+  - Use proper namespaces: `namespace App\Controllers;`
+  
+- **PSR-4**: Autoloading Standard
+  - Follow namespace structure: `App\Controllers\AuthController`
+  - File structure must match namespace
+  
+- **PSR-12**: Extended Coding Style
+  - 4 spaces for indentation (no tabs)
+  - Opening braces on same line for methods/functions
+  - One blank line after namespace declaration
+  - Type hints for all parameters and return types
+  - Visibility must be declared on all properties and methods
+
+## Code Style Rules
+
+### Language
+- **ALL code, comments, and documentation MUST be in ENGLISH**
+- Variable names, method names, comments: English only
+- No Portuguese or any other language
+
+### File Structure
+```
+src/
+├── Core/           # Framework core classes
+├── Controllers/    # HTTP Controllers
+├── Models/         # Database Models
+├── Services/       # Business logic services
+├── Repositories/   # Data access layer (if needed)
+├── Middleware/     # HTTP Middleware
+└── config/         # Configuration files
+```
+
+### Naming Conventions
+- **Classes**: PascalCase (e.g., `UserController`, `CarrierModel`)
+- **Methods**: camelCase (e.g., `findByEmail`, `createUser`)
+- **Variables**: camelCase (e.g., `$userId`, `$carrierData`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `MAX_ATTEMPTS`, `DB_HOST`)
+- **Database tables**: snake_case plural (e.g., `carriers`, `packages`)
+- **Database columns**: snake_case (e.g., `created_at`, `user_id`)
+
+### Type Declarations
+- Always use strict types: `declare(strict_types=1);`
+- Always declare return types: `public function getName(): string`
+- Always declare parameter types: `public function setName(string $name): void`
+- Use nullable types when needed: `?string`, `?int`, `?array`
+
+### Method Visibility
+- Always declare visibility: `public`, `protected`, or `private`
+- Use `private` by default, expose only what's necessary
+- Use `protected` for methods that child classes need
+
+### Comments
+- Avoid comments in code (write self-documenting code)
+- Use PHPDoc only for complex methods or when return types are arrays with specific structure
+- Example:
+```php
+/**
+ * @return array{id: int, name: string, email: string}
+ */
+public function getUserData(): array
+```
+
+### Error Handling
+- Use exceptions for error handling
+- Don't use `die()` or `exit()` in business logic
+- Log errors properly: `error_log($message)`
+- Return proper HTTP status codes
+
+### Database Queries
+- Always use prepared statements (PDO)
+- Never concatenate user input in SQL queries
+- Use named parameters: `:email` instead of `?`
+
+### Response Format
+- All API responses must be JSON
+- Use standardized format:
+```php
+// Success
+{
+    "success": true,
+    "message": "Operation successful",
+    "data": {...}
+}
+
+// Error
+{
+    "success": false,
+    "message": "Error message",
+    "errors": {...}
+}
+```
+
+### Dependency Injection
+- Inject dependencies via constructor
+- Don't instantiate dependencies inside methods
+- Example:
+```php
+public function __construct(
+    private CarrierRepository $carrierRepository,
+    private Validator $validator
+) {}
+```
+
+### Validation
+- Extract validation logic to separate Validator classes
+- Don't mix validation with business logic
+- Return validation errors in consistent format
+
+### Security
+- Always hash passwords: `password_hash()`
+- Validate and sanitize all user inputs
+- Use parameterized queries
+- Set proper CORS headers
+- Never expose sensitive data (passwords, tokens) in responses
+
+### Docker
+- Keep Dockerfile simple and efficient
+- Use multi-stage builds when possible
+- Don't include development tools in production images
+- Use environment variables for configuration
+
+### Testing
+- Write tests for all business logic
+- Use PHPUnit for unit tests
+- Test edge cases and error conditions
+- Keep tests isolated and independent
+
+## File Templates
+
+### Controller Template
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Response;
+use App\Models\YourModel;
+
+class YourController extends Controller
+{
+    private YourModel $model;
+    
+    public function __construct()
+    {
+        parent::__construct();
+        $this->model = new YourModel();
+    }
+    
+    public function index(): void
+    {
+        $data = $this->model->all();
+        Response::success($data);
+    }
+}
+```
+
+### Model Template
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Core\Model;
+
+class YourModel extends Model
+{
+    protected string $table = 'your_table';
+    
+    public function findByField(string $value): ?array
+    {
+        return $this->where('field_name', $value)[0] ?? null;
+    }
+}
+```
+
+## Common Patterns
+
+### Repository Pattern (Optional but Recommended)
+```php
+interface CarrierRepositoryInterface
+{
+    public function findByEmail(string $email): ?array;
+    public function create(array $data): int;
+}
+```
+
+### Service Pattern for Business Logic
+```php
+class AuthService
+{
+    public function __construct(
+        private CarrierRepository $carrierRepository
+    ) {}
+    
+    public function register(array $data): int
+    {
+        // Business logic here
+        return $this->carrierRepository->create($data);
+    }
+}
+```
+
+## Git Commit Messages
+- Use conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`
+- Write in imperative mood: "Add feature" not "Added feature"
+- Keep first line under 50 characters
+- Example: `feat: add user authentication endpoint`
+
+## Environment
+- Use Docker Compose for local development
+- Keep environment variables in `.env` file (not committed)
+- Use `docker-compose.yml` for orchestration
+- Expose only necessary ports
+
+## Performance
+- Use database indexes on frequently queried columns
+- Implement pagination for list endpoints
+- Cache when appropriate
+- Minimize database queries (avoid N+1 problem)
+
+## Documentation
+- Keep README.md updated with:
+  - Setup instructions
+  - API endpoints
+  - Environment variables
+  - Project structure
+
+Remember: Code should be clean, readable, and maintainable. When in doubt, prioritize clarity over cleverness.
+

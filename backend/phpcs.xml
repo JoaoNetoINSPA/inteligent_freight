@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<ruleset name="Intelligent Freight">
+    <description>PHP CodeSniffer configuration for Intelligent Freight Backend</description>
+
+    <!-- Files to check -->
+    <file>src</file>
+
+    <!-- Show progress -->
+    <arg value="p"/>
+    
+    <!-- Use colors -->
+    <arg name="colors"/>
+
+    <!-- PSR-12 Coding Standard -->
+    <rule ref="PSR12"/>
+
+    <!-- Additional rules -->
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+    <rule ref="Generic.Commenting.Todo"/>
+    <rule ref="Generic.PHP.ForbiddenFunctions"/>
+    
+    <!-- Type hints -->
+    <rule ref="SlevomatCodingStandard.TypeHints.ReturnTypeHintSpacing"/>
+    <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHintSpacing"/>
+    
+    <!-- Exclude vendor directory -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/public/*</exclude-pattern>
+</ruleset>
+
