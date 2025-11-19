@@ -93,10 +93,10 @@ const Landing = () => {
       <section className="container mx-auto px-4 py-20">
         <div className="max-w-4xl mx-auto text-center mb-12 animate-fade-in">
           <h2 className="text-5xl font-bold mb-6 text-foreground">
-            Smart Freight Auditing
+            Smart Freight Calculator
           </h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Reduce shipping costs with AI-powered freight audit and analysis
+            Calculate shipping costs with AI-powered freight calculator
           </p>
         </div>
 
